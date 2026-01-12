@@ -1,0 +1,128 @@
+### 1. Obtener IDs (Necesitamos saber los IDs reales de tu DB)
+# Nota: Tendrás que mirar tu base de datos y copiar los UUID reales
+# Reemplaza los UUIDs de abajo con los que veas en tu tabla de WebStorm
+
+### 2. Simular un DEPÓSITO (Cliente entrega $100)
+POST http://localhost:3000/api/transactions/operation
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "accountId": "045f81c1-b2a8-4282-a4ee-ec69762a5040",
+  "cashAccountId": "bca94daa-d5bb-4aff-94e6-afcb0af18b04",
+  "type": "DEPOSITO",
+  "amount": 100,
+  "commission": 0.50,
+  "description": "Deposito Cliente Juan"
+}
+
+### 3. Simular un REBALANCEO (Sacas $500 de Caja para meter al Banco)
+POST http://localhost:3000/api/transactions/rebalance
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "sourceAccountId": "bca94daa-d5bb-4aff-94e6-afcb0af18b04",
+  "destinationAccountId": "045f81c1-b2a8-4282-a4ee-ec69762a5040",
+  "amount": 50,
+  "description": "Llevando efectivo al banco"
+}
+
+
+### 4. Crear un PRÉSTAMO (Prestar $50 a Juan Empleado)
+POST http://localhost:3000/api/debts/loan
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "cashAccountId": "bca94daa-d5bb-4aff-94e6-afcb0af18b04",
+  "debtorName": "Juan Perez",
+  "amount": 50,
+  "description": "Adelanto de quincena"
+}
+
+### 5. Ver Deudas Pendientes (Para obtener el ID de la deuda creada)
+GET http://localhost:3000/api/debts/pending
+
+### 6. Abonar a la Deuda (Juan paga $20)
+# Copia el "id" de la deuda que salga en el paso 5 y pégalo abajo en "debtId"
+POST http://localhost:3000/api/debts/pay
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "cashAccountId": "bca94daa-d5bb-4aff-94e6-afcb0af18b04",
+  "debtId": "9aecc776-33e7-44c9-8651-3e4da422c689",
+  "amount": 20
+}
+
+
+### 7. SIMULAR UN CIERRE DE CAJA (ARQUEO)
+# Imagina que según tus pruebas anteriores, en caja quedaron $930 (por ejemplo).
+# Aquí el cajero dice que contó solo $925.
+POST http://localhost:3000/api/closing/perform
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "accountId": "045f81c1-b2a8-4282-a4ee-ec69762a5040",
+  "reportedAmount": 925.00,
+  "comments": "No encuentro un billete de 5"
+}
+
+### 8. VER HISTORIAL DE CIERRES
+GET http://localhost:3000/api/closing/history
+
+### 9. INYECCIÓN DE CAPITAL (Dueño mete dinero al negocio)
+POST http://localhost:3000/api/transactions/inject
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "destinationAccountId": "045f81c1-b2a8-4282-a4ee-ec69762a5040",
+  "amount": 5000,
+  "description": "Rescate financiero fin de mes",
+  "fundSource": "Cuenta Personal del Dueño"
+}
+
+### 10. PAGO DE NÓMINA (Quincena)
+POST http://localhost:3000/api/transactions/expense
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "sourceAccountId": "045f81c1-b2a8-4282-a4ee-ec69762a5040",
+  "amount": 450.00,
+  "type": "PAGO_NOMINA",
+  "description": "Pago Quincena - Juan Perez"
+}
+
+### 11. COMPRA DE MERCADERÍA
+POST http://localhost:3000/api/transactions/expense
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "branchId": "9ca7d153-9526-4041-bfc1-24b7e9f07c8e",
+  "sourceAccountId": "bca94daa-d5bb-4aff-94e6-afcb0af18b04",
+  "amount": 80.50,
+  "type": "COMPRA_INVENTARIO",
+  "description": "Compra de papel bond y tintas"
+}
+
+### 12. ANULAR TRANSACCIÓN (Ups, me equivoqué)
+POST http://localhost:3000/api/transactions/annul
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "transactionId": "2a47b328-2962-4b88-84de-4469600c58b1",
+  "reason": "Error de dedo, era otro monto"
+}

@@ -6,8 +6,11 @@
   "scripts": {
     "build": "tsc"
   },
-  "dependencies": {},
+  "dependencies": {
+    "bcryptjs": "^3.0.3"
+  },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "typescript": "^5.5.3"
   },
   "private": true
