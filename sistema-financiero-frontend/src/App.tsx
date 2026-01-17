@@ -2,6 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 
+import Modal from './components/Modal';
+import TransactionForm from './components/TransactionForm';
+import TransactionList from './components/TransactionList';
+import ClosureModal from './components/ClosureModal';
+
 import { useEffect, useState } from 'react';
 import api from './api/axiosConfig';
 import BalanceCard from './components/BalanceCard';
@@ -19,32 +24,48 @@ interface Account {
 const Dashboard = () => {
     const { user, logout } = useAuth();
     const [accounts, setAccounts] = useState<Account[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [refreshTrigger, setRefreshTrigger] = useState(0); // Contador simple
+    //const [loading, setLoading] = useState(true);
 
-    // Función para cargar datos frescos
-    const fetchAccounts = async () => {
+    // --- ESTADOS PARA EL MODAL ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalType, setModalType] = useState<'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA'>('DEPOSITO');
+    const [isClosureModalOpen, setIsClosureModalOpen] = useState(false);
+    // -----------------------------
+
+    const fetchAccounts = async () => {// Opcional: mostrar carga pequeña
         try {
             const res = await api.get('/accounts');
             setAccounts(res.data);
         } catch (error) {
             console.error("Error cargando cuentas", error);
         } finally {
-            setLoading(false);
         }
     };
 
-    // Cargar al iniciar la pantalla
     useEffect(() => {
         fetchAccounts();
     }, []);
 
-    // Separamos las cuentas para visualizarlas mejor
+    // Función para abrir el modal con el tipo correcto
+    const openModal = (type: 'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA') => {
+        setModalType(type);
+        setIsModalOpen(true);
+    };
+
+    // Función que se ejecuta cuando la operación es exitosa
+    const handleSuccess = () => {
+        setIsModalOpen(false); // Cerrar modal
+        fetchAccounts();       // RECARGAR SALDOS AUTOMÁTICAMENTE 🔄
+        setRefreshTrigger(prev => prev + 1);
+        alert('¡Operación realizada con éxito!'); // Feedback simple
+    };
+
     const cashAccounts = accounts.filter(a => a.type === 'physical');
     const bankAccounts = accounts.filter(a => a.type === 'bank' || a.type === 'platform');
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* 1. Navbar Superior */}
             <nav className="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
                 <div>
                     <h1 className="text-xl font-bold text-brand-blue">Financiero PRO</h1>
@@ -52,65 +73,98 @@ const Dashboard = () => {
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="font-medium text-gray-700">{user?.username}</span>
+                    <button onClick={logout} className="text-sm text-red-600 font-medium">Salir</button>
+                </div>
+                <div className="flex items-center gap-4">
+                    {/* BOTÓN NUEVO */}
                     <button
-                        onClick={logout}
-                        className="text-sm text-red-600 hover:text-red-800 font-medium"
+                        onClick={() => setIsClosureModalOpen(true)}
+                        className="px-3 py-1 bg-gray-900 text-white text-xs font-bold rounded hover:bg-gray-700 transition"
                     >
-                        Salir
+                        🔐 Cierre de Caja
                     </button>
+
+                    <span className="font-medium text-gray-700">{user?.username}</span>
+                    <button onClick={logout} className="text-sm text-red-600 font-medium">Salir</button>
                 </div>
             </nav>
 
-            {/* 2. Contenido Principal */}
             <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
 
-                {/* Sección A: Efectivo (Lo más importante) */}
+                {/* --- TARJETAS (IGUAL QUE ANTES) --- */}
                 <h2 className="text-gray-500 font-medium mb-4 uppercase text-sm">💰 Mi Caja (Efectivo)</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {loading ? <p>Cargando saldos...</p> : cashAccounts.map(acc => (
-                        <BalanceCard
-                            key={acc.id}
-                            title={acc.name}
-                            amount={acc.balance}
-                            type="cash"
-                        />
+                    {cashAccounts.map(acc => (
+                        <BalanceCard key={acc.id} title={acc.name} amount={acc.balance} type="cash" />
                     ))}
-                    {/* Tarjeta resumen si no hay cajas (solo ejemplo) */}
-                    {!loading && cashAccounts.length === 0 && (
-                        <p className="text-gray-400 italic">No tienes cajas asignadas.</p>
-                    )}
                 </div>
 
-                {/* Sección B: Bancos y Plataformas */}
-                <h2 className="text-gray-500 font-medium mb-4 uppercase text-sm">🏦 Bancos y Plataformas</h2>
+                <h2 className="text-gray-500 font-medium mb-4 uppercase text-sm">🏦 Bancos</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {bankAccounts.map(acc => (
-                        <BalanceCard
-                            key={acc.id}
-                            title={acc.name}
-                            amount={acc.balance}
-                            type={acc.type === 'bank' ? 'bank' : 'platform'}
-                        />
+                        <BalanceCard key={acc.id} title={acc.name} amount={acc.balance} type={acc.type === 'bank' ? 'bank' : 'platform'} />
                     ))}
                 </div>
 
-                {/* Sección C: Operaciones Rápidas (Solo botones visuales por ahora) */}
+                {/* --- BOTONES DE ACCIÓN (AHORA FUNCIONALES) --- */}
                 <h2 className="text-gray-500 font-medium mb-4 uppercase text-sm">⚡ Acciones Rápidas</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-brand-blue font-semibold transition flex flex-col items-center gap-2">
-                        <span>📥</span> Depósito
+                    <button
+                        onClick={() => openModal('DEPOSITO')}
+                        className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-emerald-50 hover:border-emerald-200 text-brand-blue font-semibold transition flex flex-col items-center gap-2"
+                    >
+                        <span className="text-2xl">📥</span> Depósito (Ingreso)
                     </button>
-                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-brand-blue font-semibold transition flex flex-col items-center gap-2">
-                        <span>📤</span> Retiro
+
+                    <button
+                        onClick={() => openModal('RETIRO')}
+                        className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-red-50 hover:border-red-200 text-brand-blue font-semibold transition flex flex-col items-center gap-2"
+                    >
+                        <span className="text-2xl">📤</span> Retiro (Dueño)
                     </button>
-                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-brand-blue font-semibold transition flex flex-col items-center gap-2">
-                        <span>🔄</span> Transferencia
+
+                    <button
+                        onClick={() => openModal('TRANSFERENCIA')}
+                        className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 hover:border-blue-200 text-brand-blue font-semibold transition flex flex-col items-center gap-2"
+                    >
+                        <span className="text-2xl">🔄</span> Mover Dinero
                     </button>
-                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-brand-blue font-semibold transition flex flex-col items-center gap-2">
-                        <span>🧾</span> Pagar Servicio
+
+                    <button
+                        onClick={() => openModal('GASTO')}
+                        className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-orange-50 hover:border-orange-200 text-brand-blue font-semibold transition flex flex-col items-center gap-2"
+                    >
+                        <span className="text-2xl">💸</span> Gasto / Compra
+                    </button>
+
+                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-gray-400 font-semibold transition flex flex-col items-center gap-2 cursor-not-allowed">
+                        <span className="text-2xl">🧾</span> Pagar Servicio (Pronto)
                     </button>
                 </div>
+                <TransactionList refreshTrigger={refreshTrigger} />
             </main>
+
+            {/* --- AQUÍ VIVE EL MODAL --- */}
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                title={`Registrar ${modalType}`}
+            >
+                <TransactionForm
+                    type={modalType}
+                    accounts={accounts}
+                    onSuccess={handleSuccess}
+                    onCancel={() => setIsModalOpen(false)}
+                />
+            </Modal>
+
+            <ClosureModal
+                isOpen={isClosureModalOpen}
+                onClose={() => setIsClosureModalOpen(false)}
+                onSuccess={handleSuccess} // Reutilizamos handleSuccess para que recargue todo
+                accounts={accounts}
+            />
+
         </div>
     );
 };

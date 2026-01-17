@@ -11,24 +11,25 @@ export enum TransactionType {
     SALE = "VENTA",
 
     // Operaciones Internas
-
-    EXPENSE = "GASTO",
-    PAYROLL = "PAGO_NOMINA",        // Sueldos, Quincenas (NUEVO)
+    EXPENSE = "GASTO_GENERAL",
+    PAYROLL = "PAGO_NOMINA",
     PURCHASE = "COMPRA_INVENTARIO",
 
     // Deudas
     LOAN_GIVEN = "PRESTAMO_DAR",
     DEBT_PAYMENT = "ABONO_DEUDA",
 
-    // --- NUEVO: GESTIÓN DE TESORERÍA ---
+    // Gestión de Tesorería
     INTERNAL_TRANSFER = "TRANSFERENCIA_INTERNA",
-
-    CAPITAL_INJECTION = "INYECCION_CAPITAL"
+    CAPITAL_INJECTION = "INYECCION_CAPITAL",
+    UTILITY_WITHDRAWAL = "RETIRO_UTILIDAD"
 }
 
 export enum TransactionStatus {
+    COMPLETED = "COMPLETADO",
     VALID = "VALIDO",
-    ANNULLED = "ANULADO"
+    ANNULLED = "ANULADO",
+    PENDING = "PENDIENTE"
 }
 
 @Entity()
@@ -37,29 +38,35 @@ export class Transaction {
     id: string;
 
     @CreateDateColumn()
-    createdAt: Date;
+    date: Date;
 
-    @Column({ type: "enum", enum: TransactionType })
-    type: TransactionType;
+    @Column({ type: "text", nullable: true })
+    metadata: string;
 
-    @Column({ type: "decimal", precision: 12, scale: 2 })
+    @Column({
+        type: "enum",
+        enum: TransactionType
+    })
+    type: string; // Lo dejamos como string para flexibilidad con el controlador, o usa TransactionType
+
+    @Column("decimal", { precision: 12, scale: 2 })
     amount: number;
 
-    @Column({ type: "decimal", precision: 12, scale: 2, default: 0 })
-    commission: number; // Generalmente 0 en transferencias internas, pero por si el banco cobra.
+    @Column("decimal", { precision: 12, scale: 2, default: 0 })
+    commission: number;
 
     @Column({ nullable: true })
     description: string;
 
-    // NUEVO CAMPO: Estado
+    // Estado
     @Column({
         type: "enum",
         enum: TransactionStatus,
-        default: TransactionStatus.VALID
+        default: TransactionStatus.COMPLETED // Cambiado a COMPLETED para coincidir con el controlador
     })
-    status: TransactionStatus;
+    status: string;
 
-    // Opcional: Relación con la transacción que anuló a esta (Auditoría)
+    // Auditoría de anulación
     @Column({ nullable: true })
     relatedTransactionId: string;
 
@@ -69,17 +76,20 @@ export class Transaction {
     @JoinColumn({ name: "user_id" })
     user: User;
 
-    @ManyToOne(() => Branch, { nullable: false })
+    // CORRECCIÓN AQUÍ:
+    // 1. Solo una definición de branch.
+    // 2. nullable: true (porque el controlador puede mandar null).
+    // 3. Tipo: Branch | null (para que TypeScript no se queje).
+    @ManyToOne(() => Branch, { nullable: true })
     @JoinColumn({ name: "branch_id" })
-    branch: Branch;
+    branch: Branch | null;
 
-    // CUENTA ORIGEN (De donde sale el dinero)
+    // CUENTA ORIGEN (Principal)
     @ManyToOne(() => Account, { nullable: true })
     @JoinColumn({ name: "account_id" })
     account: Account;
 
-    // --- NUEVO CAMPO: CUENTA DESTINO ---
-    // Solo se usa cuando type === INTERNAL_TRANSFER
+    // CUENTA DESTINO (Para transferencias o caja física)
     @ManyToOne(() => Account, { nullable: true })
     @JoinColumn({ name: "destination_account_id" })
     destinationAccount: Account;

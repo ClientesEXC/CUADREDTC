@@ -126,3 +126,21 @@ Content-Type: application/json
   "transactionId": "2a47b328-2962-4b88-84de-4469600c58b1",
   "reason": "Error de dedo, era otro monto"
 }
+
+
+### 13. VISTA PRELIMINAR DE CIERRE (Ver Ganancias vs Gastos)
+# Esto solo consulta, no guarda nada ni mueve dinero.
+GET http://localhost:3000/api/closure/preview
+Content-Type: application/json
+
+### 14. EJECUTAR CIERRE DE CICLO (¡Cuidado! Esto archiva el periodo)
+POST http://localhost:3000/api/closure/close
+Content-Type: application/json
+
+{
+  "userId": "76a604ea-49da-43f0-b3f8-e101e8581845",
+  "notes": "Cierre de prueba - Quincena 1",
+  "capitalizeAmount": 0,
+  "sourceAccountId": null,
+  "destinationAccountId": null
+}

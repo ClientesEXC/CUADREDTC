@@ -7,6 +7,7 @@ const router = Router();
 // POST http://localhost:3000/api/transactions/operation
 router.post("/operation", TransactionController.createOperation);
 
+
 // Ruta para rebalanceo (Mover dinero interno)
 // POST http://localhost:3000/api/transactions/rebalance
 router.post("/rebalance", TransactionController.rebalance);
@@ -19,5 +20,8 @@ router.post("/expense", TransactionController.registerExpense);
 
 // POST http://localhost:3000/api/transactions/annul
 router.post("/annul", TransactionController.annulTransaction);
+
+// GET http://localhost:3000/api/transactions/history
+router.get("/history", TransactionController.getHistory);
 
 export default router;

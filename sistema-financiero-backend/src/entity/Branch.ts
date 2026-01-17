@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
 import { User } from "./User";
+import { Account } from "./Account";
 
 @Entity()
 export class Branch {
@@ -24,4 +25,7 @@ export class Branch {
     // Relación: Una sucursal tiene muchos usuarios
     @OneToMany(() => User, (user) => user.branch)
     users: User[];
+    //Relación: Una sucursal tiene muchas cuentas
+    @OneToMany(() => Account, (account: Account) => account.branch)
+    accounts: Account[];
 }
