@@ -9,8 +9,8 @@ interface Account {
 }
 
 interface Props {
-    // AGREGAMOS 'TRANSFERENCIA' A LOS TIPOS ACEPTADOS
-    type: 'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA';
+    // 👇 AGREGAMOS 'PAGO_SERVICIO'
+    type: 'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA' | 'PAGO_SERVICIO';
     accounts: Account[];
     onSuccess: () => void;
     onCancel: () => void;
@@ -20,13 +20,20 @@ export default function TransactionForm({ type, accounts, onSuccess, onCancel }:
     const { user } = useAuth();
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-
     const [selectedAccountId, setSelectedAccountId] = useState(''); // Origen
     const [destinationAccountId, setDestinationAccountId] = useState(''); // Destino (Nuevo)
     const [expenseType, setExpenseType] = useState('GASTO_GENERAL');
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // FILTROS INTELIGENTES 🧠
+    // Bancos: Para Depósitos/Retiros normales
+    const bankAccounts = accounts.filter(acc => acc.type === 'bank');
+    // Plataformas (Apps): Para Pagar Servicios o Giros
+    const platformAccounts = accounts.filter(acc => acc.type === 'platform');
+
+    // Decidir qué lista mostrar según la operación
+    const accountsToShow = (type === 'PAGO_SERVICIO') ? platformAccounts : bankAccounts;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,7 +49,7 @@ export default function TransactionForm({ type, accounts, onSuccess, onCancel }:
                 userId: user?.id,
                 branchId: user?.branchId,
                 amount: Number(amount),
-                description: description || "Sin descripción",
+                description: description || (type === 'PAGO_SERVICIO' ? "Pago Servicio" : "Sin descripción"),
             };
 
             // LOGICA SEGUN TIPO
@@ -62,9 +69,9 @@ export default function TransactionForm({ type, accounts, onSuccess, onCancel }:
                 // El backend de rebalance espera un 'type' interno, pero la ruta ya define la acción
             }
             else {
-                // Depósito / Retiro
+                // DEPOSITO, RETIRO o PAGO_SERVICIO
                 body.accountId = selectedAccountId;
-                body.type = type;
+                body.type = type; // El backend ya sabe manejar PAGO_SERVICIO
             }
 
             await api.post(endpoint, body);
@@ -80,17 +87,17 @@ export default function TransactionForm({ type, accounts, onSuccess, onCancel }:
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-                <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200">
-                    {error}
-                </div>
-            )}
+            {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200">{error}</div>}
 
-            {/* 1. CUENTA ORIGEN (Siempre visible) */}
+            {/* SELECTOR DINÁMICO */}
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {type === 'DEPOSITO' ? 'Cuenta Destino (Donde entra)' : 'Cuenta Origen (De donde sale)'}
+                    {type === 'DEPOSITO' ? '🏦 Banco Destino' :
+                        type === 'RETIRO' ? '🏦 Banco Origen' :
+                            type === 'PAGO_SERVICIO' ? '📱 Aplicación / Plataforma' : // 👈 TEXTO NUEVO
+                                'Cuenta Origen'}
                 </label>
+
                 <select
                     value={selectedAccountId}
                     onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -98,81 +105,66 @@ export default function TransactionForm({ type, accounts, onSuccess, onCancel }:
                     required
                 >
                     <option value="">-- Selecciona --</option>
-                    {accounts.map(acc => (
-                        <option key={acc.id} value={acc.id}>
-                            {acc.name} ({acc.type})
-                        </option>
-                    ))}
+
+                    {/* LÓGICA VISUAL: Si es Transferencia o Gasto, mostramos TODO. Si no, mostramos la lista filtrada */}
+                    {(type === 'TRANSFERENCIA' || type === 'GASTO')
+                        ? accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>)
+                        : accountsToShow.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)
+                    }
                 </select>
+
+                {/* Ayuda visual si no hay apps creadas */}
+                {type === 'PAGO_SERVICIO' && platformAccounts.length === 0 && (
+                    <p className="text-xs text-orange-500 mt-1">⚠️ No tienes aplicaciones (tipo 'platform') creadas.</p>
+                )}
             </div>
 
-            {/* 2. CUENTA DESTINO (Solo para Transferencias) */}
+            {/* DESTINO (Solo Transferencias) - IGUAL QUE ANTES */}
             {type === 'TRANSFERENCIA' && (
-                <div className="bg-blue-50 p-3 rounded border border-blue-100 animate-fade-in">
-                    <label className="block text-sm font-bold text-blue-800 mb-1">➡️ Hacia Cuenta Destino</label>
+                <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                    <label className="block text-sm font-bold text-blue-800 mb-1">➡️ Hacia Cuenta</label>
                     <select
                         value={destinationAccountId}
                         onChange={(e) => setDestinationAccountId(e.target.value)}
-                        className="w-full p-2 border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full p-2 border border-blue-200 rounded outline-none"
                         required
                     >
-                        <option value="">-- Selecciona Destino --</option>
-                        {accounts.map(acc => (
-                            // Evitamos mostrar la misma cuenta que ya seleccionó arriba
-                            acc.id !== selectedAccountId && (
-                                <option key={acc.id} value={acc.id}>
-                                    {acc.name} ({acc.type})
-                                </option>
-                            )
+                        <option value="">-- Selecciona --</option>
+                        {accounts.map(acc => acc.id !== selectedAccountId && (
+                            <option key={acc.id} value={acc.id}>{acc.name}</option>
                         ))}
                     </select>
                 </div>
             )}
 
-            {/* 3. TIPO DE GASTO (Solo Gasto) */}
+            {/* TIPO GASTO - IGUAL QUE ANTES */}
             {type === 'GASTO' && (
                 <div className="bg-orange-50 p-3 rounded border border-orange-100">
-                    <label className="block text-sm font-bold text-orange-800 mb-1">Tipo de Egreso</label>
-                    <select
-                        value={expenseType}
-                        onChange={(e) => setExpenseType(e.target.value)}
-                        className="w-full p-2 border border-orange-200 rounded focus:ring-2 focus:ring-orange-500 outline-none"
-                    >
+                    <label className="block text-sm font-bold text-orange-800 mb-1">Categoría</label>
+                    <select value={expenseType} onChange={e => setExpenseType(e.target.value)} className="w-full p-2 border border-orange-200 rounded">
                         <option value="GASTO_GENERAL">💡 Gasto General</option>
-                        <option value="COMPRA_INVENTARIO">📦 Compra Mercadería</option>
+                        <option value="COMPRA_INVENTARIO">📦 Mercadería</option>
                         <option value="PAGO_NOMINA">👷‍♂️ Nómina</option>
                     </select>
                 </div>
             )}
 
-            {/* MONTO y DESCRIPCION (Igual que antes) */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
-                    <input
-                        type="number" step="0.01" value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded outline-none font-mono text-lg"
-                        placeholder="0.00" required
-                    />
+                    <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-2 border border-gray-300 rounded font-mono text-lg" placeholder="0.00" required />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nota</label>
-                    <input
-                        type="text" value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded outline-none"
-                        placeholder="Detalle..." required
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {type === 'PAGO_SERVICIO' ? 'Ref / Servicio' : 'Nota'}
+                    </label>
+                    <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2 border border-gray-300 rounded" placeholder={type === 'PAGO_SERVICIO' ? "Ej: Luz, Agua..." : "Detalle..."} required />
                 </div>
             </div>
 
             <div className="flex gap-3 pt-2">
                 <button type="button" onClick={onCancel} className="flex-1 py-2 border border-gray-300 rounded text-gray-600 hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 py-2 rounded text-white font-bold bg-brand-blue hover:bg-slate-800">
-                    {loading ? '...' : 'Confirmar'}
-                </button>
+                <button type="submit" disabled={loading} className="flex-1 py-2 rounded text-white font-bold bg-brand-blue hover:bg-slate-800">{loading ? 'Procesando' : 'Confirmar'}</button>
             </div>
-        </form>
-    );
+        </form>);
 }

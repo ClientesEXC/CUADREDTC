@@ -32,28 +32,44 @@ export default function TransactionList({ refreshTrigger }: Props) {
             setLoading(true);
             const res = await api.get('/transactions/history');
 
-            console.log("📡 DATA RECIBIDA:", res.data); // Para depurar en F12
+            console.log("📡 ESTRUCTURA RECIBIDA:", res.data);
 
-            // ✅ BLINDAJE: Verificamos si es realmente un Array antes de guardarlo
+            // 👇 AQUÍ ESTÁ EL TRUCO: Buscamos el array en varios lugares posibles
+            let transactionsArray = [];
+
             if (Array.isArray(res.data)) {
-                setTransactions(res.data);
+                // Caso A: El backend devuelve la lista directa (Formato viejo)
+                transactionsArray = res.data;
+            } else if (res.data?.transactions && Array.isArray(res.data.transactions)) {
+                // Caso B: Devuelve { transactions: [...] }
+                transactionsArray = res.data.transactions;
+            } else if (res.data?.data?.transactions && Array.isArray(res.data.data.transactions)) {
+                // Caso C: Devuelve { data: { transactions: [...] } } (TU CASO ACTUAL)
+                transactionsArray = res.data.data.transactions;
+            } else if (res.data?.data && Array.isArray(res.data.data)) {
+                // Caso D: Devuelve { data: [...] }
+                transactionsArray = res.data.data;
+            }
+
+            // Guardamos lo que encontramos
+            if (transactionsArray.length > 0 || Array.isArray(transactionsArray)) {
+                setTransactions(transactionsArray);
                 setErrorMsg(null);
             } else {
-                console.error("Formato incorrecto recibido:", res.data);
-                setTransactions([]); // Si falla, array vacío para no romper .map()
-                // Si el backend manda un mensaje de error, lo mostramos
-                if (res.data?.message) setErrorMsg(res.data.message);
+                console.error("❌ No encontré la lista de transacciones en la respuesta.");
+                setTransactions([]);
+                // Si hay un mensaje de error específico del backend, lo usamos
+                setErrorMsg(res.data?.message || "Formato desconocido del servidor");
             }
 
         } catch (error: any) {
             console.error("Error de red:", error);
-            setErrorMsg("Error conectando con el servidor");
+            setErrorMsg(error.response?.data?.message || "No se pudo cargar el historial.");
             setTransactions([]);
         } finally {
             setLoading(false);
         }
     };
-
     useEffect(() => {
         fetchHistory();
     }, [refreshTrigger]);

@@ -1,4 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AdminRoute from "./components/AdminRoute";
+import CashierRoute from "./components/CashierRoute";
+import AdminBranchesPage from "./pages/AdminBranchesPage";
+import AdminCashiersPage from "./pages/AdminCashiersPage";
+import CashierPage from "./pages/CashierPage";
+
+
+//import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 
@@ -11,7 +21,7 @@ import { useEffect, useState } from 'react';
 import api from './api/axiosConfig';
 import BalanceCard from './components/BalanceCard';
 // 1. IMPORTAMOS EL TIPO NECESARIO
-import type { ReactNode } from 'react';
+//import type { ReactNode } from 'react';
 
 // Definimos qué forma tiene una cuenta
 interface Account {
@@ -29,7 +39,7 @@ const Dashboard = () => {
 
     // --- ESTADOS PARA EL MODAL ---
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalType, setModalType] = useState<'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA'>('DEPOSITO');
+    const [modalType, setModalType] = useState<'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA' | 'PAGO_SERVICIO'>('DEPOSITO');
     const [isClosureModalOpen, setIsClosureModalOpen] = useState(false);
     // -----------------------------
 
@@ -48,7 +58,7 @@ const Dashboard = () => {
     }, []);
 
     // Función para abrir el modal con el tipo correcto
-    const openModal = (type: 'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA') => {
+    const openModal = (type: 'DEPOSITO' | 'RETIRO' | 'GASTO' | 'TRANSFERENCIA'| 'PAGO_SERVICIO') => {
         setModalType(type);
         setIsModalOpen(true);
     };
@@ -71,12 +81,28 @@ const Dashboard = () => {
                     <h1 className="text-xl font-bold text-brand-blue">Financiero PRO</h1>
                     <span className="text-xs text-gray-500">Sucursal: {user?.branchName}</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <span className="font-medium text-gray-700">{user?.username}</span>
-                    <button onClick={logout} className="text-sm text-red-600 font-medium">Salir</button>
-                </div>
-                <div className="flex items-center gap-4">
-                    {/* BOTÓN NUEVO */}
+
+                <div className="flex items-center gap-3">
+                    {/* 👉 Botones SOLO para Admin */}
+                    {user?.role === "admin" && (
+                        <>
+                            <Link
+                                to="/admin/branches"
+                                className="px-3 py-1 bg-white border border-gray-300 text-xs font-bold rounded hover:bg-gray-100 transition"
+                            >
+                                🏪 Locales
+                            </Link>
+
+                            <Link
+                                to="/admin/cashiers"
+                                className="px-3 py-1 bg-white border border-gray-300 text-xs font-bold rounded hover:bg-gray-100 transition"
+                            >
+                                👤 Cajeros
+                            </Link>
+                        </>
+                    )}
+
+                    {/* 👉 Botón existente */}
                     <button
                         onClick={() => setIsClosureModalOpen(true)}
                         className="px-3 py-1 bg-gray-900 text-white text-xs font-bold rounded hover:bg-gray-700 transition"
@@ -85,7 +111,9 @@ const Dashboard = () => {
                     </button>
 
                     <span className="font-medium text-gray-700">{user?.username}</span>
-                    <button onClick={logout} className="text-sm text-red-600 font-medium">Salir</button>
+                    <button onClick={logout} className="text-sm text-red-600 font-medium">
+                        Salir
+                    </button>
                 </div>
             </nav>
 
@@ -137,8 +165,11 @@ const Dashboard = () => {
                         <span className="text-2xl">💸</span> Gasto / Compra
                     </button>
 
-                    <button className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-blue-50 text-gray-400 font-semibold transition flex flex-col items-center gap-2 cursor-not-allowed">
-                        <span className="text-2xl">🧾</span> Pagar Servicio (Pronto)
+                    <button
+                        onClick={() => openModal('PAGO_SERVICIO')} // 👈 AHORA SÍ ABRE MODAL
+                        className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-purple-50 hover:border-purple-200 text-brand-blue font-semibold transition flex flex-col items-center gap-2"
+                    >
+                        <span className="text-2xl">📱</span> Pagar Servicio / App
                     </button>
                 </div>
                 <TransactionList refreshTrigger={refreshTrigger} />
@@ -170,11 +201,11 @@ const Dashboard = () => {
 };
 
 // 2. CORREGIMOS EL TIPO AQUÍ (De JSX.Element a ReactNode)
-const PrivateRoute = ({ children }: { children: ReactNode }) => {
-    const { isAuthenticated } = useAuth();
+//const PrivateRoute = ({ children }: { children: ReactNode }) => {
+    //const { isAuthenticated } = useAuth();
     // Si está autenticado muestra el hijo, si no, redirige al login
-    return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+    //return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+//};
 
 function App() {
     return (
@@ -182,12 +213,20 @@ function App() {
             <BrowserRouter>
                 <Routes>
                     <Route path="/login" element={<LoginPage />} />
-                    <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                    <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                    <Route path="/admin/branches" element={<AdminRoute><AdminBranchesPage /></AdminRoute>} />
+                    <Route path="/admin/cashiers" element={<AdminRoute><AdminCashiersPage /></AdminRoute>} />
+
+                    {/* Cajero */}
+                    <Route path="/cashier" element={<CashierRoute><CashierPage /></CashierRoute>} />
+
+                    {/* Default */}
+                    <Route path="*" element={<Navigate to="/login" />} />
+
                 </Routes>
             </BrowserRouter>
         </AuthProvider>
     )
 }
 
-export default App
+export default App;

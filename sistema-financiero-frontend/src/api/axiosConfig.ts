@@ -9,10 +9,33 @@ const api = axios.create({
     }
 });
 
-// Interceptor: Si el backend devuelve un error, lo capturamos aquí
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem("financiero_token");
+        if (token) {
+            config.headers = {
+                ...(config.headers as any),
+                Authorization: `Bearer ${token}`,
+            };
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Interceptor de RESPONSE: log + limpieza si expira token
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        const status = error.response?.status;
+
+        if (status === 401 || status === 403) {
+            // 👉 Si el token murió, limpiamos sesión y mandamos al login
+            localStorage.removeItem("financiero_user");
+            localStorage.removeItem("financiero_token");
+            window.location.href = "/login";
+        }
+
         console.error("Error en la API:", error.response?.data?.message || error.message);
         return Promise.reject(error);
     }

@@ -15,8 +15,14 @@ export default function LoginPage() {
         setError('');
         try {
             const response = await api.post('/auth/login', { username, password });
-            login(response.data.user);
-            navigate('/dashboard');
+            login(response.data.user, response.data.token);
+            //navigate('/dashboard');
+
+            //const { role } = response.data.user;
+
+            if (response.data.user.role === "admin") navigate("/dashboard");
+            else navigate("/cashier");
+
         } catch (err: any) {
             setError('Credenciales incorrectas o error de servidor');
         }

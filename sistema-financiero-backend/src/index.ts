@@ -4,15 +4,21 @@ import cors from "cors";
 import helmet from "helmet";
 import * as dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes";
+import { requireAuth } from "./middlewares/requireAuth";
 import { AppDataSource } from "./data-source";
 import transactionRoutes from "./routes/transactionRoutes";
 import debtRoutes from "./routes/debtRoutes";
 import cashCountRoutes from "./routes/cashCountRoutes";
 import accountRoutes from "./routes/accountRoutes";
 import closureRoutes from "./routes/closureRoutes";
+import adminTestRoutes from "./routes/adminTestRoutes";
+import { requireRole } from "./middlewares/requireRole";
+import adminBranchRoutes from "./routes/adminBranchRoutes";
+import adminUserRoutes from "./routes/adminUserRoutes";
+
 
 import { Account, AccountType } from "./entity/Account";
-
+import { User } from "./entity/User";
 // Cargar variables de entorno
 dotenv.config();
 
@@ -26,11 +32,15 @@ app.use(express.json()); // Permite recibir JSON en las peticiones
 
 // Rutas
 app.use("/api/auth", authRoutes);
-app.use("/api/accounts", accountRoutes);
-app.use("/api/transactions", transactionRoutes);
-app.use("/api/debts", debtRoutes);
-app.use("/api/closing", cashCountRoutes);
-app.use("/api/closure", closureRoutes);
+
+app.use("/api/accounts", requireAuth, accountRoutes);
+app.use("/api/transactions", requireAuth, transactionRoutes);
+app.use("/api/debts", requireAuth, debtRoutes);
+app.use("/api/closing", requireAuth, cashCountRoutes);
+app.use("/api/closure", requireAuth, closureRoutes);
+app.use("/api/admin", requireAuth, requireRole("admin"), adminTestRoutes);
+app.use("/api/admin/branches", requireAuth, requireRole("admin"), adminBranchRoutes);
+app.use("/api/admin/users", requireAuth, requireRole("admin"), adminUserRoutes);
 
 // Ruta de prueba
 app.get("/", (_req, res) => {
@@ -46,51 +56,40 @@ AppDataSource.initialize()
         // 🛠️ MIGRACIÓN Y LIMPIEZA DE DATOS (EJECUTAR UNA VEZ)
         // ==============================================================
         try {
+            const userRepo = AppDataSource.getRepository(User);
             const accountRepo = AppDataSource.getRepository(Account);
 
-            // 1. BORRAR LA CAJA AUTOMÁTICA VACÍA (La que se creó por error)
-            const basura = await accountRepo.findOne({
-                where: { name: "Bóveda Principal (Admin)", balance: 0 }
-            });
+            // 1. Buscamos al usuario 'admin' (asegúrate que tu usuario se llame así o 'user')
+            // Si no estás seguro, busca el primero que encuentres.
+            const adminUser = await userRepo.findOne({ where: { username: "admin" } })
+                || await userRepo.findOne({ where: {} });
 
-            if (basura) {
-                await accountRepo.remove(basura);
-                console.log("🗑️ Caja duplicada de $0.00 eliminada.");
-            }
+            if (adminUser) {
+                console.log(`👤 Usuario detectado para asignar cajas: ${adminUser.username}`);
 
-            // 2. RECUPERAR TU BÓVEDA ORIGINAL ($1111.00)
-            const miBoveda = await accountRepo.findOne({
-                where: { name: "Bóveda Central" }
-            });
+                // 2. Buscamos tus cajas físicas existentes
+                const cajasFisicas = await accountRepo.find({
+                    where: [
+                        { name: "Bóveda Central" },
+                        { name: "Caja Efectivo - Admin" }
+                    ]
+                });
 
-            if (miBoveda) {
-                console.log("🔧 Reparando configuración de 'Bóveda Central'...");
-                // La forzamos a ser PHYSICAL para que el sistema la reconozca
-                miBoveda.type = AccountType.PHYSICAL;
-                // Le ponemos un número de cuenta si no lo tiene
-                if (!miBoveda.accountNumber) {
-                    miBoveda.accountNumber = "BOVEDA-MATRIZ-01";
+                // 3. Las actualizamos una por una
+                for (const caja of cajasFisicas) {
+                    // Corrección de tipo
+                    caja.type = AccountType.PHYSICAL;
+                    // Corrección de dueño (CRUCIAL para que te deje operar)
+                    caja.user = adminUser;
+                    // Corrección de número de cuenta
+                    if (!caja.accountNumber) caja.accountNumber = `FISICA-${caja.id.substring(0,4)}`;
+
+                    await accountRepo.save(caja);
+                    console.log(`✅ Caja '${caja.name}' asignada correctamente a ${adminUser.username}`);
                 }
-
-                await accountRepo.save(miBoveda);
-                console.log("✅ ¡Bóveda Central recuperada y actualizada correctamente!");
-            }
-
-            // 3. RECUPERAR TU CAJA DE EFECTIVO ($2546.50)
-            const miCaja = await accountRepo.findOne({
-                where: { name: "Caja Efectivo - Admin" }
-            });
-
-            if (miCaja) {
-                miCaja.type = AccountType.PHYSICAL;
-                if (!miCaja.accountNumber) {
-                    miCaja.accountNumber = "CAJA-ADMIN-01";
-                }
-                await accountRepo.save(miCaja);
-                console.log("✅ ¡Caja Efectivo Admin actualizada!");
             }
         } catch (error) {
-            console.error("⚠️ Error en migración:", error);
+            console.error("⚠️ Error en reparación de cajas:", error);
         }
         // ==============================================================
 

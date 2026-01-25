@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { AppDataSource } from "./data-source";
 import { Branch } from "./entity/Branch";
-import { User, UserRole } from "./entity/User";
+import { User } from "./entity/User";
 import { Account, AccountType } from "./entity/Account";
 import * as bcrypt from "bcryptjs";
 
@@ -43,7 +43,7 @@ async function main() {
         admin.username = "admin";
         // ENCRIPTACIÓN: "admin123" se convierte en hash indescifrable
         admin.password = await bcrypt.hash("admin123", 10);
-        admin.role = UserRole.ADMIN;
+        admin.role = "admin";
         admin.branch = localA; // El admin base estará en Local A
         await userRepo.save(admin);
     }
